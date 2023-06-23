@@ -1,0 +1,28 @@
+# https://kubernetes.io/docs/concepts/workloads/controllers/deployment/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: plutus 
+  namespace: default
+  labels:
+    app: plutus 
+spec:
+  selector:
+    matchLabels:
+      app: plutus
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: plutus 
+    spec:
+      containers:
+      - name: plutus 
+        image:  myjob:latest
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - configMapRef:
+            name: plutus
+      restartPolicy: Always
+---
+

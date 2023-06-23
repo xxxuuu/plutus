@@ -1,0 +1,11 @@
+# https://kubernetes.io/docs/concepts/configuration/configmap/
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: plutus
+data:
+  NODE_ADDRESS: wss://xxx/mainnet/
+  DINGTALK_TOKEN: 123456
+  CONSTRUCTOR_CONTRACTS: a,b,c
+---
+
