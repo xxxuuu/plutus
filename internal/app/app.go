@@ -68,16 +68,17 @@ func (app *App) serviceFailover() {
 }
 
 func (app *App) executeService(srv Service) {
-	filter := srv.EthFilter()
-	logCh := make(chan types.Log)
-	sub, err := app.status.Client.SubscribeFilterLogs(context.Background(), filter, logCh)
-	if err != nil {
-		app.log.Errorf("Service %s subscribe failed: %s", srv.Name(), err)
-		app.failoverCh<-srv.Name()
-		return
-	}
-
 	go func() {
+		filter := srv.EthFilter()
+		logCh := make(chan types.Log)
+
+		sub, err := app.status.Client.SubscribeFilterLogs(context.Background(), filter, logCh)
+		if err != nil {
+			app.log.Errorf("Service %s subscribe failed: %s", srv.Name(), err)
+			app.failoverCh<-srv.Name()
+			return
+		}
+
 		srv.PreRun()
 		app.log.Infof("Service %s running...", srv.Name())
 		for {
