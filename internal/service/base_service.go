@@ -12,6 +12,6 @@ func (b baseService) PreRun() {
 
 }
 
-func (b baseService) Log(content string) (string, *app.Logger) {
+func (b baseService) Log(ctx app.EventContext, content string) (string, *app.Logger) {
 	return content, b.appStatus.Log
 }

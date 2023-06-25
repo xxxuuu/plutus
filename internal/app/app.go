@@ -25,7 +25,6 @@ type App struct {
 type Status struct {
 	Log *Logger
 	Client *ethclient.Client
-	notices []Notice
 }
 
 type Logger struct {
@@ -38,12 +37,12 @@ type Event struct {
 
 type Filter interface {
 	EthFilter() ethereum.FilterQuery
-	NeedHandle(*Event) bool
+	NeedHandle(EventContext) bool
 }
 
 type Executor interface {
 	PreRun()
-	Execute(*Event)
+	Execute(EventContext)
 }
 
 type Service interface {
@@ -57,7 +56,6 @@ func EmptyStatus() *Status {
 	return &Status {
 		nil,
 		nil,
-		[]Notice{},
 	}
 }
 
@@ -75,6 +73,7 @@ func (app *App) executeService(srv Service) {
 	sub, err := app.status.Client.SubscribeFilterLogs(context.Background(), filter, logCh)
 	if err != nil {
 		app.log.Errorf("Service %s subscribe failed: %s", srv.Name(), err)
+		app.failoverCh<-srv.Name()
 		return
 	}
 
@@ -83,13 +82,14 @@ func (app *App) executeService(srv Service) {
 		app.log.Infof("Service %s running...", srv.Name())
 		for {
 			select {
-			case <-sub.Err():
+			case err := <-sub.Err():
+				app.status.Log.Warnf("Service %s error: %s, restart...", srv.Name(), err)
 				app.failoverCh<-srv.Name()
 				return
 			case log := <-logCh:
-				event := Event{log}
-				if srv.NeedHandle(&event) {
-					srv.Execute(&event)
+				ctx := NewEventContext(&Event{log})
+				if srv.NeedHandle(ctx) {
+					srv.Execute(ctx)
 				}
 			}
 		}
@@ -109,10 +109,12 @@ func (app *App) Run() {
 		app.executeService(srv)
 	}
 
+	app.status.Log.Info("app running...")
+
 	<-app.exitCh
 }
 
-func NewApp(name string, config *Config, options []Option, services []Service, logger *Logger) *App {
+func NewApp(name string, config *Config, options []Option, logger *Logger) *App {
 	srvMap := make(map[string]Service)
 
 	for _, srv := range services {
@@ -136,6 +138,8 @@ func NewApp(name string, config *Config, options []Option, services []Service, l
 	for _, opt := range options {
 		opt(app)
 	}
+
+	app.status.Log.Infof("app config %v", app.config)
 
 	for _, s := range app.services {
 		s.Init(app.config, app.status, app.operator)

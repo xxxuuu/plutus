@@ -4,6 +4,9 @@ import (
 	"plutus/internal/app"
 
 	"go.uber.org/zap"
+
+	_ "plutus/internal/service"
+	_ "plutus/internal/notice"
 )
 
 func main() {
@@ -17,12 +20,10 @@ func main() {
 
 	app := app.NewApp(
 		"Plutus",
-	    &config,
+		&config,
 		[]app.Option{},
-		[]app.Service{},
 		&app.Logger{ *sugar },
 	)
 
-	sugar.Info("app running...")
 	app.Run()
 }

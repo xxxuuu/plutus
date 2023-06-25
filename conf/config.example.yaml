@@ -1,0 +1,11 @@
+node_address: wss://xxx/mainnet/
+dingtalk_token: 123456
+constructor:
+  contracts:
+    a:
+      - 0xaaaa
+      - 0xaaab
+    b:
+      - 0xbbbb
+      - 0xbbbc
+

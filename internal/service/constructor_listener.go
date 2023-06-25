@@ -15,16 +15,24 @@ const PancakeSwapPairCreated = "0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355
 type ConstructorListener struct {
 	baseService
 	cfg *ConstructorConfig
-	byteCodes []string
+	// contract address -> byte code
+	byteCodes map[string]string
+	// contract address -> contract name
+	contractName map[string]string
 }
 
 type ConstructorConfig struct {
-	Contracts []string `koanf:"contracts"`
+	// contract name -> contract addresses
+	Contracts map[string][]string `koanf:"contracts"`
 }
 
 func NewConstructorListener() *ConstructorListener {
-	return &ConstructorListener{
+	c := &ConstructorListener{
+		cfg: &ConstructorConfig{},
+		byteCodes: map[string]string{},
+		contractName: map[string]string{},
 	}
+	return c
 }
 
 func (c *ConstructorListener) Name() string {
@@ -42,45 +50,60 @@ func (c *ConstructorListener) EthFilter() ethereum.FilterQuery {
 	return filter
 }
 
-func (c *ConstructorListener) NeedHandle(event *app.Event) bool {
-	byteCode, err := c.operator.ByteCode(event.Address)
+func (c *ConstructorListener) PreRun() {
+	c.contractName = map[string]string{}
+	c.byteCodes = map[string]string{}
+	for name, contracts := range c.cfg.Contracts {
+		for i := range contracts {
+			contract := contracts[i]
+			byteCode, err := c.appStatus.Client.CodeAt(context.Background(), common.HexToAddress(contract), nil)
+			if err != nil {
+				c.appStatus.Log.Warnf("%s PreRun(): contract %s get byteCode failed: %s", c.Name(), contract, err)
+				continue
+			}
+			c.contractName[contract] = name
+			c.byteCodes[contract] = string(byteCode)
+		}
+	} 
+}
+
+func (c *ConstructorListener) NeedHandle(ctx app.EventContext) bool {
+	event := ctx.Event()
+	contract := common.HexToAddress(event.Topics[1].Hex())
+	byteCode, err := c.operator.ByteCode(contract)
 	if err != nil {
-		c.appStatus.Log.Errorf("get %s bytecode failed: %s", event.Address.String(), err)
+		c.appStatus.Log.Errorf("get %s bytecode failed: %s", contract, err)
 		return false
 	}
+
 	for i := range c.byteCodes {
 		if string(byteCode) == c.byteCodes[i] {
+			ctx.Set("Contract", contract)
+			ctx.Set("SrcContract", i)
+			ctx.Set("SrcContractName", c.contractName[i])
 			return true
 		}
 	}
 	return false
 }
 
-func (c *ConstructorListener) PreRun() {
-	for _, contract := range c.cfg.Contracts {
-		byteCode, err := c.appStatus.Client.CodeAt(context.Background(), common.HexToAddress(contract), nil)
-		if err != nil {
-			c.appStatus.Log.Warnf("%s PreRun(): contract %s get byteCode failed: %s", c.Name(), contract, err)
-			continue
-		}
-		c.byteCodes = append(c.byteCodes, string(byteCode))
-	}
+func (c *ConstructorListener) Execute(ctx app.EventContext) {
+	contract := ctx.Value("Contract").(string)
+	srcContract := ctx.Value("SrcContract").(string)
+	srcContractName := ctx.Value("SrcContractName").(string)
+
+	ctx.Set(app.NoticeContent, fmt.Sprintf("合约地址 %s，与 %s(%s) 相同", contract, srcContract, srcContractName))
+
+	c.operator.BroadCast(ctx, c)
 }
 
-func (c *ConstructorListener) Execute(event *app.Event) {
-	c.operator.BroadCast(c, map[string]any{
-		app.NoticeContent: fmt.Sprintf("contract %s discovered", event.Address.String()),
-		"contract": event.Topics[0].Hex(),
-	})
-}
-
-func (c *ConstructorListener) SendDingtalk(content map[string]any) (string, string) {
+func (c *ConstructorListener) SendDingtalk(ctx app.EventContext) (string, string) {
 	token := c.appCfg.DingtalkToken
 	json := `{
 	  "msgtype": "markdown",
 	  "markdown": {
 		"title": "上链检测",
-		"text": "contract address: %s"
+		"text": "%s"
 	  },
 	  "at": {
 		"atMobiles": [],
@@ -88,8 +111,7 @@ func (c *ConstructorListener) SendDingtalk(content map[string]any) (string, stri
 		"isAtAll": false
 	  }
 	}`
-	contractAddr := content["contract"].(string)
-	return token, fmt.Sprintf(json, contractAddr)
+	return token, fmt.Sprintf(json, ctx.Value(app.NoticeContent).(string))
 }
 
 func (c *ConstructorListener) Init(config *app.Config, status *app.Status, operator app.Operator) {

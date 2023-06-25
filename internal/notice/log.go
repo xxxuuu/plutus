@@ -5,17 +5,17 @@ import "plutus/internal/app"
 type LogNotice struct {
 }
 
-func (l LogNotice) Notice(srv any, content map[string]any) {
+func (l LogNotice) Notice(ctx app.EventContext, srv any) {
 	if log, ok := srv.(LogSender); ok {
-		if str, ok := content[app.NoticeContent].(string); ok {
-			content, logger := log.Log(str)
+		if str, ok := ctx.Value(app.NoticeContent).(string); ok {
+			content, logger := log.Log(ctx, str)
 			logger.Info(content)
 		}
 	}
 }
 
 type LogSender interface {
-	Log(content string) (string, *app.Logger)
+	Log(ctx app.EventContext, content string) (string, *app.Logger)
 }
 
 func init() {
