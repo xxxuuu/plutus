@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ type App struct {
 type Status struct {
 	Log *Logger
 	Client *ethclient.Client
+	Cache *lru.Cache[string, any]
 }
 
 type Logger struct {
@@ -56,6 +58,7 @@ func EmptyStatus() *Status {
 	return &Status {
 		nil,
 		nil,
+		lru.NewCache[string, any](256),
 	}
 }
 

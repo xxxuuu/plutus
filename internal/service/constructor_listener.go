@@ -50,13 +50,26 @@ func (c *ConstructorListener) EthFilter() ethereum.FilterQuery {
 	return filter
 }
 
+func (c *ConstructorListener) getByteCode(contract string) (string, error) {
+	if byteCode, has := c.appStatus.Cache.Get(fmt.Sprintf("BYTECODE_%s", contract)); has {
+		return byteCode.(string), nil
+	}
+
+	byteCode, err := c.appStatus.Client.CodeAt(context.Background(), common.HexToAddress(contract), nil)
+	if err != nil {
+		return "", err
+	}
+	c.appStatus.Cache.Add(fmt.Sprintf("BYTECODE_%s", contract), string(byteCode))
+	return string(byteCode), nil
+}
+
 func (c *ConstructorListener) PreRun() {
 	c.contractName = map[string]string{}
 	c.byteCodes = map[string]string{}
 	for name, contracts := range c.cfg.Contracts {
 		for i := range contracts {
 			contract := contracts[i]
-			byteCode, err := c.appStatus.Client.CodeAt(context.Background(), common.HexToAddress(contract), nil)
+			byteCode, err := c.getByteCode(contract)
 			if err != nil {
 				c.appStatus.Log.Warnf("%s PreRun(): contract %s get byteCode failed: %s", c.Name(), contract, err)
 				continue
