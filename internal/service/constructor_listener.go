@@ -82,8 +82,8 @@ func (c *ConstructorListener) PreRun() {
 
 func (c *ConstructorListener) NeedHandle(ctx app.EventContext) bool {
 	event := ctx.Event()
-	contract := common.HexToAddress(event.Topics[1].Hex())
-	byteCode, err := c.operator.ByteCode(contract)
+	contract := event.Topics[1].Hex()
+	byteCode, err := c.getByteCode(contract)
 	if err != nil {
 		c.appStatus.Log.Errorf("get %s bytecode failed: %s", contract, err)
 		return false
