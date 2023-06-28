@@ -105,7 +105,9 @@ func (c *ConstructorListener) Execute(ctx app.EventContext) {
 	srcContract := ctx.Value("SrcContract").(string)
 	srcContractName := ctx.Value("SrcContractName").(string)
 
-	ctx.Set(app.NoticeContent, fmt.Sprintf("合约地址 %s，与 %s(%s) 相同", contract, srcContract, srcContractName))
+	ctx.Set(app.NoticeContent,
+		fmt.Sprintf("合约地址 %s，与 %s(%s) 相同",
+		common.HexToAddress(contract), srcContract, srcContractName))
 
 	c.operator.BroadCast(ctx, c)
 }
