@@ -100,6 +100,7 @@ func (c *ConstructorListener) NeedHandle(ctx app.EventContext) (bool, error) {
 
 	for i := range c.byteCodes {
 		if string(byteCode) == c.byteCodes[i] {
+			ctx.Set("TxHash", event.TxHash.Hex())
 			ctx.Set("Contract", contract)
 			ctx.Set("SrcContract", i)
 			ctx.Set("SrcContractName", c.contractName[i])
@@ -113,10 +114,11 @@ func (c *ConstructorListener) Execute(ctx app.EventContext) error {
 	contract := ctx.Value("Contract").(string)
 	srcContract := ctx.Value("SrcContract").(string)
 	srcContractName := ctx.Value("SrcContractName").(string)
+	txHash := ctx.Value("TxHash").(string)
 
 	ctx.Set(app.NoticeContent,
-		fmt.Sprintf("合约地址 %s，与 %s(%s) 相同",
-		common.HexToAddress(contract), srcContract, srcContractName))
+		fmt.Sprintf("合约地址 %s，与 %s(%s) 相同, 事件 Hash: %s",
+		common.HexToAddress(contract), srcContract, srcContractName, txHash))
 
 	c.operator.BroadCast(ctx, c)
 
