@@ -19,6 +19,7 @@ type ConstructorListener struct {
 	byteCodes map[string]string
 	// contract address -> contract name
 	contractName map[string]string
+	retry bool
 }
 
 type ConstructorConfig struct {
@@ -31,6 +32,7 @@ func NewConstructorListener() *ConstructorListener {
 		cfg: &ConstructorConfig{},
 		byteCodes: map[string]string{},
 		contractName: map[string]string{},
+		retry: false,
 	}
 	return c
 }
@@ -80,13 +82,20 @@ func (c *ConstructorListener) PreRun() {
 	} 
 }
 
-func (c *ConstructorListener) NeedHandle(ctx app.EventContext) bool {
+func (c *ConstructorListener) Retry() bool {
+	ret := c.retry
+	c.retry = false
+	return ret
+}
+
+func (c *ConstructorListener) NeedHandle(ctx app.EventContext) (bool, error) {
 	event := ctx.Event()
 	contract := event.Topics[1].Hex()
 	byteCode, err := c.getByteCode(contract)
 	if err != nil {
-		c.appStatus.Log.Errorf("get %s bytecode failed: %s", contract, err)
-		return false
+		c.appStatus.Log.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract), err)
+		c.retry = true
+		return false, err
 	}
 
 	for i := range c.byteCodes {
@@ -94,13 +103,13 @@ func (c *ConstructorListener) NeedHandle(ctx app.EventContext) bool {
 			ctx.Set("Contract", contract)
 			ctx.Set("SrcContract", i)
 			ctx.Set("SrcContractName", c.contractName[i])
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
-func (c *ConstructorListener) Execute(ctx app.EventContext) {
+func (c *ConstructorListener) Execute(ctx app.EventContext) error {
 	contract := ctx.Value("Contract").(string)
 	srcContract := ctx.Value("SrcContract").(string)
 	srcContractName := ctx.Value("SrcContractName").(string)
@@ -110,6 +119,8 @@ func (c *ConstructorListener) Execute(ctx app.EventContext) {
 		common.HexToAddress(contract), srcContract, srcContractName))
 
 	c.operator.BroadCast(ctx, c)
+
+	return nil
 }
 
 func (c *ConstructorListener) SendDingtalk(ctx app.EventContext) (string, string) {

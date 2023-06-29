@@ -16,7 +16,7 @@ type App struct {
 	services map[string]Service
 	noticeCh map[string]chan Event
 	exitCh   chan struct{}
-	failoverCh chan string
+	failoverCh chan failoverReq
 	operator Operator
 	log *Logger
 
@@ -39,19 +39,25 @@ type Event struct {
 
 type Filter interface {
 	EthFilter() ethereum.FilterQuery
-	NeedHandle(EventContext) bool
+	NeedHandle(EventContext) (bool, error)
 }
 
 type Executor interface {
 	PreRun()
-	Execute(EventContext)
+	Execute(EventContext) error
 }
 
 type Service interface {
 	Name() string
 	Filter
 	Executor
+	Retry() bool
 	Init(*Config, *Status, Operator)
+}
+
+type failoverReq struct {
+	serviceName string
+	event EventContext
 }
 
 func EmptyStatus() *Status {
@@ -62,39 +68,79 @@ func EmptyStatus() *Status {
 	}
 }
 
+func failoverWithoutEvent(srvName string) failoverReq {
+	return failoverReq{
+		serviceName: srvName,
+		event: NewEventContext(nil),
+	}
+}
+
+func failoverWithEvent(srvName string, event EventContext) failoverReq {
+	return failoverReq{
+		serviceName: srvName,
+		event: event,
+	}
+}
+
 func (app *App) serviceFailover() {
 	go func()  {
-		for name := range app.failoverCh {
-			app.executeService(app.services[name])
+		for req := range app.failoverCh {
+			service := app.services[req.serviceName]
+
+			retryEvent := &req.event
+			if !service.Retry() {
+				retryEvent = nil
+			}
+
+			// TODO: limiting
+			app.executeService(service, retryEvent)
 		}	
 	}()	
 }
 
-func (app *App) executeService(srv Service) {
+func (app *App) executeService(srv Service, retryEvent *EventContext) {
 	go func() {
 		filter := srv.EthFilter()
 		logCh := make(chan types.Log)
 
 		sub, err := app.status.Client.SubscribeFilterLogs(context.Background(), filter, logCh)
 		if err != nil {
-			app.log.Errorf("Service %s subscribe failed: %s", srv.Name(), err)
-			app.failoverCh<-srv.Name()
+			app.log.Warnf("Service %s subscribe failed: %s", srv.Name(), err)
+			app.failoverCh<-failoverWithoutEvent(srv.Name())
 			return
 		}
 
 		srv.PreRun()
 		app.log.Infof("Service %s running...", srv.Name())
+
+		handleEvent := func(ctx EventContext) {
+			needhandle, err := srv.NeedHandle(ctx)
+			if err != nil {
+				app.log.Errorf("Service %s NeedHandle() failed: %s", srv.Name(), err)
+				app.failoverCh<-failoverWithEvent(srv.Name(), ctx)
+			}
+			if !needhandle {
+				return
+			}
+			if err := srv.Execute(ctx); err != nil {
+				app.log.Errorf("Service %s Execute() failed: %s", srv.Name(), err)
+				app.failoverCh<-failoverWithEvent(srv.Name(), ctx)
+			}
+		}
+
+		if retryEvent != nil {
+			handleEvent(*retryEvent)
+		}
+
 		for {
 			select {
 			case err := <-sub.Err():
 				app.status.Log.Warnf("Service %s error: %s, restart...", srv.Name(), err)
-				app.failoverCh<-srv.Name()
+				app.failoverCh<-failoverWithoutEvent(srv.Name())
 				return
 			case log := <-logCh:
 				ctx := NewEventContext(&Event{log})
-				if srv.NeedHandle(ctx) {
-					srv.Execute(ctx)
-				}
+				handleEvent(ctx)
 			}
 		}
 	}()
@@ -110,7 +156,7 @@ func (app *App) Run() {
 	app.serviceFailover()
 
 	for _, srv := range app.services {
-		app.executeService(srv)
+		app.executeService(srv, nil)
 	}
 
 	app.status.Log.Info("app running...")
@@ -133,7 +179,7 @@ func NewApp(name string, config *Config, options []Option, logger *Logger) *App 
 		srvMap,
 		make(map[string]chan Event),
 		make(chan struct{}),
-		make(chan string),
+		make(chan failoverReq),
 		Operator{status},
 		logger,
 		status,
