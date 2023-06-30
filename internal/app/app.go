@@ -113,23 +113,27 @@ func (app *App) executeService(srv Service, retryEvent *EventContext) {
 		srv.PreRun()
 		app.log.Infof("Service %s running...", srv.Name())
 
-		handleEvent := func(ctx EventContext) {
+		// returns whether goroutine needs to be closed
+		handleEvent := func(ctx EventContext) bool {
 			needhandle, err := srv.NeedHandle(ctx)
 			if err != nil {
 				app.log.Errorf("Service %s NeedHandle() failed: %s", srv.Name(), err)
 				app.failoverCh<-failoverWithEvent(srv.Name(), ctx)
+				return true
 			}
 			if !needhandle {
-				return
+				return false
 			}
 			if err := srv.Execute(ctx); err != nil {
 				app.log.Errorf("Service %s Execute() failed: %s", srv.Name(), err)
 				app.failoverCh<-failoverWithEvent(srv.Name(), ctx)
+				return true
 			}
+			return false
 		}
 
-		if retryEvent != nil {
-			handleEvent(*retryEvent)
+		if retryEvent != nil && handleEvent(*retryEvent) {
+			return
 		}
 
 		for {
@@ -140,7 +144,9 @@ func (app *App) executeService(srv Service, retryEvent *EventContext) {
 				return
 			case log := <-logCh:
 				ctx := NewEventContext(&Event{log})
-				handleEvent(ctx)
+				if handleEvent(ctx) {
+					return
+				}
 			}
 		}
 	}()
