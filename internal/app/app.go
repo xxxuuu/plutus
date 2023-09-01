@@ -87,15 +87,16 @@ func (app *App) serviceFailover() {
 		for req := range app.failoverCh {
 			service := app.services[req.serviceName]
 
-			retryEvent := &req.event
-			if !service.Retry() {
-				retryEvent = nil
+			var retryEvent *EventContext
+			if service.Retry() {
+				retryEvent = &req.event
+				app.log.Infof("retry event %v", req.event)
 			}
 
 			// TODO: limiting
 			app.executeService(service, retryEvent)
-		}	
-	}()	
+		}
+	}()
 }
 
 func (app *App) executeService(srv Service, retryEvent *EventContext) {

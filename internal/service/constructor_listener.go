@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"plutus/internal/app"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -111,14 +112,23 @@ func (c *ConstructorListener) NeedHandle(ctx app.EventContext) (bool, error) {
 }
 
 func (c *ConstructorListener) Execute(ctx app.EventContext) error {
+	event := ctx.Event()
 	contract := ctx.Value("Contract").(string)
 	srcContract := ctx.Value("SrcContract").(string)
 	srcContractName := ctx.Value("SrcContractName").(string)
 	txHash := ctx.Value("TxHash").(string)
 
 	ctx.Set(app.NoticeContent,
-		fmt.Sprintf("合约地址 %s，与 %s(%s) 相同, 事件 Hash: %s",
-		common.HexToAddress(contract), srcContract, srcContractName, txHash))
+		fmt.Sprintf(`
+通知时间: %s
+
+区块高度: %d
+
+合约地址 %s
+
+与 %s(%s) 相同
+
+事件 Hash: %s`, time.Now().UTC().String(), event.BlockNumber, common.HexToAddress(contract), srcContract, srcContractName, txHash))
 
 	c.operator.BroadCast(ctx, c)
 
