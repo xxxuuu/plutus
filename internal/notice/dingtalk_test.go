@@ -3,13 +3,13 @@ package notice
 import (
 	"encoding/json"
 	"os"
-	"plutus/internal/app"
 	"strings"
 	"testing"
+
+	"plutus/internal/app"
 )
 
-type MockDingtalkSender struct {
-}
+type MockDingtalkSender struct{}
 
 func (m *MockDingtalkSender) SendDingtalk(ctx app.EventContext) (string, string) {
 	token := os.Getenv("DINGTALK_TOKEN")
@@ -28,7 +28,6 @@ func (m *MockDingtalkSender) SendDingtalk(ctx app.EventContext) (string, string)
 
 	return token, content
 }
-
 
 func TestJsonDecode(t *testing.T) {
 	jsonStr := `

@@ -6,14 +6,14 @@ import (
 
 type EventContext struct {
 	event *Event
-	data map[any]any
+	data  map[any]any
 }
 
 func NewEventContext(e *Event) EventContext {
 	return EventContext{
 		event: e,
-		data: map[any]any{},
-	}	
+		data:  map[any]any{},
+	}
 }
 
 func (c EventContext) Deadline() (deadline time.Time, ok bool) {
@@ -39,4 +39,3 @@ func (c EventContext) Set(key any, value any) {
 func (c EventContext) Event() *Event {
 	return c.event
 }
-

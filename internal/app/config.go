@@ -7,11 +7,11 @@ import (
 )
 
 type Config struct {
-	NodeAddress     string   `koanf:"node_address"`
-	DingtalkToken   string   `koanf:"dingtalk_token"`
+	NodeAddress   string `koanf:"node_address"`
+	DingtalkToken string `koanf:"dingtalk_token"`
 }
 
-func readConfig() (*koanf.Koanf) {
+func readConfig() *koanf.Koanf {
 	k := koanf.New(".")
 	_ = k.Load(file.Provider("config.yaml"), yaml.Parser())
 	_ = k.Load(file.Provider("conf/config.yaml"), yaml.Parser())

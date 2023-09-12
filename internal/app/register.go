@@ -1,7 +1,9 @@
 package app
 
-var services []Service
-var notices []Notice
+var (
+	services []Service
+	notices  []Notice
+)
 
 func RegisterService(s Service) {
 	services = append(services, s)

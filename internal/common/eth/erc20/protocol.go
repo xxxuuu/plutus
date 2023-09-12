@@ -2,8 +2,9 @@ package erc20
 
 import (
 	_ "embed"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 //go:embed erc20.abi.json

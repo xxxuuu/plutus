@@ -2,8 +2,7 @@ package notice
 
 import "plutus/internal/app"
 
-type LogNotice struct {
-}
+type LogNotice struct{}
 
 func (l LogNotice) Notice(ctx app.EventContext, srv any) error {
 	if log, ok := srv.(LogSender); ok {

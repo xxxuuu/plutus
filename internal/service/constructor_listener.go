@@ -3,15 +3,18 @@ package service
 import (
 	"context"
 	"fmt"
-	"plutus/internal/app"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+
+	"plutus/internal/app"
 )
 
-const PancakeSwapAddress = "0xca143ce32fe78f1f7019d7d551a6402fc5350c73"
-const PancakeSwapPairCreated = "0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9"
+const (
+	PancakeSwapAddress     = "0xca143ce32fe78f1f7019d7d551a6402fc5350c73"
+	PancakeSwapPairCreated = "0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9"
+)
 
 type ConstructorListener struct {
 	baseService
@@ -20,7 +23,7 @@ type ConstructorListener struct {
 	byteCodes map[string]string
 	// contract address -> contract name
 	contractName map[string]string
-	retry bool
+	retry        bool
 }
 
 type ConstructorConfig struct {
@@ -30,10 +33,10 @@ type ConstructorConfig struct {
 
 func NewConstructorListener() *ConstructorListener {
 	c := &ConstructorListener{
-		cfg: &ConstructorConfig{},
-		byteCodes: map[string]string{},
+		cfg:          &ConstructorConfig{},
+		byteCodes:    map[string]string{},
 		contractName: map[string]string{},
-		retry: false,
+		retry:        false,
 	}
 	return c
 }
@@ -47,7 +50,8 @@ func (c *ConstructorListener) EthFilter() ethereum.FilterQuery {
 		Addresses: []common.Address{common.HexToAddress(PancakeSwapAddress)},
 		Topics: [][]common.Hash{
 			{common.HexToHash(PancakeSwapPairCreated)},
-			{}, {},
+			{},
+			{},
 		},
 	}
 	return filter
@@ -80,7 +84,7 @@ func (c *ConstructorListener) PreRun() {
 			c.contractName[contract] = name
 			c.byteCodes[contract] = string(byteCode)
 		}
-	} 
+	}
 }
 
 func (c *ConstructorListener) Retry() bool {
@@ -91,16 +95,34 @@ func (c *ConstructorListener) Retry() bool {
 
 func (c *ConstructorListener) NeedHandle(ctx app.EventContext) (bool, error) {
 	event := ctx.Event()
-	contract := event.Topics[1].Hex()
-	byteCode, err := c.getByteCode(contract)
+	contract0 := event.Topics[1].Hex()
+	byteCode0, err := c.getByteCode(contract0)
 	if err != nil {
-		c.appStatus.Log.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract), err)
+		c.appStatus.Log.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract0), err)
+		c.retry = true
+		return false, err
+	}
+
+	contract1 := event.Topics[2].Hex()
+	byteCode1, err := c.getByteCode(contract1)
+	if err != nil {
+		c.appStatus.Log.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract1), err)
 		c.retry = true
 		return false, err
 	}
 
 	for i := range c.byteCodes {
-		if string(byteCode) == c.byteCodes[i] {
+		needHandle := false
+		contract := contract0
+		if string(byteCode0) == c.byteCodes[i] {
+			needHandle = true
+			contract = contract0
+		} else if string(byteCode1) == c.byteCodes[i] {
+			needHandle = true
+			contract = contract1
+		}
+
+		if needHandle {
 			ctx.Set("TxHash", event.TxHash.Hex())
 			ctx.Set("Contract", contract)
 			ctx.Set("SrcContract", i)
@@ -128,7 +150,15 @@ func (c *ConstructorListener) Execute(ctx app.EventContext) error {
 
 与 %s(%s) 相同
 
-事件 Hash: %s`, time.Now().UTC().String(), event.BlockNumber, common.HexToAddress(contract), srcContract, srcContractName, txHash))
+事件 Hash: %s`,
+			time.Now().Format(time.DateTime),
+			event.BlockNumber,
+			common.HexToAddress(contract),
+			srcContract,
+			srcContractName,
+			txHash,
+		),
+	)
 
 	c.operator.BroadCast(ctx, c)
 

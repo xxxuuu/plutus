@@ -1,12 +1,11 @@
 package main
 
 import (
-	"plutus/internal/app"
-
 	"go.uber.org/zap"
 
-	_ "plutus/internal/service"
+	"plutus/internal/app"
 	_ "plutus/internal/notice"
+	_ "plutus/internal/service"
 )
 
 func main() {
@@ -22,7 +21,7 @@ func main() {
 		"Plutus",
 		&config,
 		[]app.Option{},
-		&app.Logger{ *sugar },
+		&app.Logger{SugaredLogger: *sugar},
 	)
 
 	app.Run()

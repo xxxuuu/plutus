@@ -1,10 +1,11 @@
 package erc20
 
 import (
+	"strings"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"strings"
 )
 
 func ParseTransfer(log types.Log) (*Transfer, error) {
