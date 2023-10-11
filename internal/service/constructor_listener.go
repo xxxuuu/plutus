@@ -9,16 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"plutus/internal/app"
+	"plutus/internal/common/address"
 )
 
 const (
-	PancakeSwapAddress     = "0xca143ce32fe78f1f7019d7d551a6402fc5350c73"
 	PancakeSwapPairCreated = "0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9"
 )
 
 type ConstructorListener struct {
 	baseService
-	cfg *ConstructorConfig
+	srvCfg *ConstructorConfig
 	// contract address -> byte code
 	byteCodes map[string]string
 	// contract address -> contract name
@@ -33,7 +33,7 @@ type ConstructorConfig struct {
 
 func NewConstructorListener() *ConstructorListener {
 	c := &ConstructorListener{
-		cfg:          &ConstructorConfig{},
+		srvCfg:       &ConstructorConfig{},
 		byteCodes:    map[string]string{},
 		contractName: map[string]string{},
 		retry:        false,
@@ -47,7 +47,7 @@ func (c *ConstructorListener) Name() string {
 
 func (c *ConstructorListener) EthFilter() ethereum.FilterQuery {
 	filter := ethereum.FilterQuery{
-		Addresses: []common.Address{common.HexToAddress(PancakeSwapAddress)},
+		Addresses: []common.Address{common.HexToAddress(address.PancakeFactoryV2)},
 		Topics: [][]common.Hash{
 			{common.HexToHash(PancakeSwapPairCreated)},
 			{},
@@ -58,27 +58,27 @@ func (c *ConstructorListener) EthFilter() ethereum.FilterQuery {
 }
 
 func (c *ConstructorListener) getByteCode(contract string) (string, error) {
-	if byteCode, has := c.appStatus.Cache.Get(fmt.Sprintf("BYTECODE_%s", contract)); has {
+	if byteCode, has := c.Cache.Get(fmt.Sprintf("BYTECODE_%s", contract)); has {
 		return byteCode.(string), nil
 	}
 
-	byteCode, err := c.appStatus.Client.CodeAt(context.Background(), common.HexToAddress(contract), nil)
+	byteCode, err := c.Client.CodeAt(context.Background(), common.HexToAddress(contract), nil)
 	if err != nil {
 		return "", err
 	}
-	c.appStatus.Cache.Add(fmt.Sprintf("BYTECODE_%s", contract), string(byteCode))
+	c.Cache.Add(fmt.Sprintf("BYTECODE_%s", contract), string(byteCode))
 	return string(byteCode), nil
 }
 
 func (c *ConstructorListener) PreRun() {
 	c.contractName = map[string]string{}
 	c.byteCodes = map[string]string{}
-	for name, contracts := range c.cfg.Contracts {
+	for name, contracts := range c.srvCfg.Contracts {
 		for i := range contracts {
 			contract := contracts[i]
 			byteCode, err := c.getByteCode(contract)
 			if err != nil {
-				c.appStatus.Log.Warnf("%s PreRun(): contract %s get byteCode failed: %s", c.Name(), contract, err)
+				c.Logger.Warnf("%s PreRun(): contract %s get byteCode failed: %s", c.Name(), contract, err)
 				continue
 			}
 			c.contractName[contract] = name
@@ -98,7 +98,7 @@ func (c *ConstructorListener) NeedHandle(ctx app.EventContext) (bool, error) {
 	contract0 := event.Topics[1].Hex()
 	byteCode0, err := c.getByteCode(contract0)
 	if err != nil {
-		c.appStatus.Log.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract0), err)
+		c.Logger.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract0), err)
 		c.retry = true
 		return false, err
 	}
@@ -106,7 +106,7 @@ func (c *ConstructorListener) NeedHandle(ctx app.EventContext) (bool, error) {
 	contract1 := event.Topics[2].Hex()
 	byteCode1, err := c.getByteCode(contract1)
 	if err != nil {
-		c.appStatus.Log.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract1), err)
+		c.Logger.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract1), err)
 		c.retry = true
 		return false, err
 	}
@@ -166,7 +166,7 @@ func (c *ConstructorListener) Execute(ctx app.EventContext) error {
 }
 
 func (c *ConstructorListener) SendDingtalk(ctx app.EventContext) (string, string) {
-	token := c.appCfg.DingtalkToken
+	token := c.cfg.DingtalkToken
 	json := `{
 	  "msgtype": "markdown",
 	  "markdown": {
@@ -183,11 +183,11 @@ func (c *ConstructorListener) SendDingtalk(ctx app.EventContext) (string, string
 }
 
 func (c *ConstructorListener) Init(config *app.Config, status *app.Status, operator app.Operator) {
-	c.appCfg = config
-	c.appStatus = status
+	c.cfg = config
+	c.Status = status
 	c.operator = operator
-	app.LoadConfig("constructor", c.cfg)
-	c.appStatus.Log.Infof("%s loaded config %v", c.Name(), c.cfg)
+	_ = app.LoadConfig("constructor", c.srvCfg)
+	c.Logger.Infof("%s loaded config %v", c.Name(), c.srvCfg)
 }
 
 func init() {

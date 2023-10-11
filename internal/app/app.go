@@ -20,11 +20,11 @@ type App struct {
 	operator   Operator
 	log        *Logger
 
-	status *Status
+	*Status
 }
 
 type Status struct {
-	Log    *Logger
+	Logger *Logger
 	Client *ethclient.Client
 	Cache  *lru.Cache[string, any]
 }
@@ -104,7 +104,7 @@ func (app *App) executeService(srv Service, retryEvent *EventContext) {
 		filter := srv.EthFilter()
 		logCh := make(chan types.Log)
 
-		sub, err := app.status.Client.SubscribeFilterLogs(context.Background(), filter, logCh)
+		sub, err := app.Client.SubscribeFilterLogs(context.Background(), filter, logCh)
 		if err != nil {
 			app.log.Warnf("Service %s subscribe failed: %s", srv.Name(), err)
 			app.failoverCh <- failoverWithoutEvent(srv.Name())
@@ -140,7 +140,7 @@ func (app *App) executeService(srv Service, retryEvent *EventContext) {
 		for {
 			select {
 			case err := <-sub.Err():
-				app.status.Log.Warnf("Service %s error: %s, restart...", srv.Name(), err)
+				app.Logger.Warnf("Service %s error: %s, restart...", srv.Name(), err)
 				app.failoverCh <- failoverWithoutEvent(srv.Name())
 				return
 			case log := <-logCh:
@@ -159,14 +159,14 @@ func (app *App) Run() {
 		app.log.Errorf("connect to Node failed: %s", err)
 		return
 	}
-	app.status.Client = client
+	app.Client = client
 	app.serviceFailover()
 
 	for _, srv := range app.services {
 		app.executeService(srv, nil)
 	}
 
-	app.status.Log.Info("app running...")
+	app.Logger.Info("app running...")
 
 	<-app.exitCh
 }
@@ -179,7 +179,7 @@ func NewApp(name string, config *Config, options []Option, logger *Logger) *App 
 	}
 
 	status := EmptyStatus()
-	status.Log = logger
+	status.Logger = logger
 	app := &App{
 		name,
 		config,
@@ -196,10 +196,10 @@ func NewApp(name string, config *Config, options []Option, logger *Logger) *App 
 		opt(app)
 	}
 
-	app.status.Log.Infof("app config %v", app.config)
+	app.Logger.Infof("app config %v", app.config)
 
 	for _, s := range app.services {
-		s.Init(app.config, app.status, app.operator)
+		s.Init(app.config, app.Status, app.operator)
 	}
 
 	return app

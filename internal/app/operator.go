@@ -7,7 +7,7 @@ type Operator struct {
 func (o *Operator) BroadCast(ctx EventContext, srv any) {
 	for _, n := range notices {
 		if err := n.Notice(ctx, srv); err != nil {
-			o.status.Log.Errorf("notice failed: %s", err)
+			o.status.Logger.Errorf("notice failed: %s", err)
 		}
 	}
 }

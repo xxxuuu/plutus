@@ -3,10 +3,9 @@ package notice
 import (
 	"encoding/json"
 	"os"
+	"plutus/internal/app"
 	"strings"
 	"testing"
-
-	"plutus/internal/app"
 )
 
 type MockDingtalkSender struct{}
@@ -38,7 +37,7 @@ func TestJsonDecode(t *testing.T) {
 	`
 
 	var data map[string]interface{}
-	json.NewDecoder(strings.NewReader(jsonStr)).Decode(&data)
+	_ = json.NewDecoder(strings.NewReader(jsonStr)).Decode(&data)
 	if data["errmsg"].(string) != "invalid parameters" {
 		t.Errorf("expect: invalid parameters; got: %s", data["errmsg"].(string))
 	}
