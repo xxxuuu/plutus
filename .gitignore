@@ -1,5 +1,5 @@
 .idea
 .vscode
 
-internal/service/*_test.go
 conf/config.yaml
+generated*.go

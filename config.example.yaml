@@ -1,0 +1,6 @@
+node_address: <NODE_RPC>
+dingtalk_token: <DINGTALK_TOKEN>
+constructor:
+  tokens:
+    <TOKEN_GROUP>:
+      - <TOKEN_ADDR>

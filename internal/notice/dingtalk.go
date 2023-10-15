@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
 	"plutus/internal/app"
 )
 

@@ -4,6 +4,7 @@ ENV CGO_ENABLED 0
 ENV GOOS linux
 WORKDIR /build
 COPY go.mod go.sum ./
+RUN go generate ./...
 RUN go mod download && go mod verify
 COPY . .
 RUN go build -o /app ./cmd/plutus/main.go

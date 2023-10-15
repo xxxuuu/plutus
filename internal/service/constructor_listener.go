@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
+	"plutus/internal/app"
+	"plutus/internal/common/address"
+	"plutus/internal/common/book"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-
-	"plutus/internal/app"
-	"plutus/internal/common/address"
 )
 
 const (
@@ -19,24 +19,26 @@ const (
 type ConstructorListener struct {
 	baseService
 	srvCfg *ConstructorConfig
-	// contract address -> byte code
+	// token address -> byte code
 	byteCodes map[string]string
-	// contract address -> contract name
-	contractName map[string]string
-	retry        bool
+	// token address -> token group
+	tokenGroup map[string]string
+	retry      bool
+
+	factory *book.PancakeFactoryV2
 }
 
 type ConstructorConfig struct {
-	// contract name -> contract addresses
-	Contracts map[string][]string `koanf:"contracts"`
+	// token group -> token addresses
+	Tokens map[string][]string `koanf:"tokens"`
 }
 
 func NewConstructorListener() *ConstructorListener {
 	c := &ConstructorListener{
-		srvCfg:       &ConstructorConfig{},
-		byteCodes:    map[string]string{},
-		contractName: map[string]string{},
-		retry:        false,
+		srvCfg:     &ConstructorConfig{},
+		byteCodes:  map[string]string{},
+		tokenGroup: map[string]string{},
+		retry:      false,
 	}
 	return c
 }
@@ -57,32 +59,32 @@ func (c *ConstructorListener) EthFilter() ethereum.FilterQuery {
 	return filter
 }
 
-func (c *ConstructorListener) getByteCode(contract string) (string, error) {
-	if byteCode, has := c.Cache.Get(fmt.Sprintf("BYTECODE_%s", contract)); has {
+func (c *ConstructorListener) getByteCode(token string) (string, error) {
+	if byteCode, has := c.Cache.Get(fmt.Sprintf("BYTECODE_%s", token)); has {
 		return byteCode.(string), nil
 	}
 
-	byteCode, err := c.Client.CodeAt(context.Background(), common.HexToAddress(contract), nil)
+	byteCode, err := c.Client.CodeAt(context.Background(), common.HexToAddress(token), nil)
 	if err != nil {
 		return "", err
 	}
-	c.Cache.Add(fmt.Sprintf("BYTECODE_%s", contract), string(byteCode))
+	c.Cache.Add(fmt.Sprintf("BYTECODE_%s", token), string(byteCode))
 	return string(byteCode), nil
 }
 
 func (c *ConstructorListener) PreRun() {
-	c.contractName = map[string]string{}
+	c.tokenGroup = map[string]string{}
 	c.byteCodes = map[string]string{}
-	for name, contracts := range c.srvCfg.Contracts {
-		for i := range contracts {
-			contract := contracts[i]
-			byteCode, err := c.getByteCode(contract)
+	for group, tokens := range c.srvCfg.Tokens {
+		for i := range tokens {
+			token := tokens[i]
+			byteCode, err := c.getByteCode(token)
 			if err != nil {
-				c.Logger.Warnf("%s PreRun(): contract %s get byteCode failed: %s", c.Name(), contract, err)
+				c.Logger.Warnf("%s PreRun(): token %s get byteCode failed: %s", c.Name(), token, err)
 				continue
 			}
-			c.contractName[contract] = name
-			c.byteCodes[contract] = string(byteCode)
+			c.tokenGroup[token] = group
+			c.byteCodes[token] = string(byteCode)
 		}
 	}
 }
@@ -95,38 +97,44 @@ func (c *ConstructorListener) Retry() bool {
 
 func (c *ConstructorListener) NeedHandle(ctx app.EventContext) (bool, error) {
 	event := ctx.Event()
-	contract0 := event.Topics[1].Hex()
-	byteCode0, err := c.getByteCode(contract0)
+
+	pairCreated, err := c.factory.PancakeFactoryV2Filterer.ParsePairCreated(event.Log)
 	if err != nil {
-		c.Logger.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract0), err)
+		return false, err
+	}
+
+	token0 := pairCreated.Token0.Hex()
+	byteCode0, err := c.getByteCode(token0)
+	if err != nil {
+		c.Logger.Errorf("get %s bytecode failed: %s", common.HexToAddress(token0), err)
 		c.retry = true
 		return false, err
 	}
 
-	contract1 := event.Topics[2].Hex()
-	byteCode1, err := c.getByteCode(contract1)
+	token1 := pairCreated.Token1.Hex()
+	byteCode1, err := c.getByteCode(token1)
 	if err != nil {
-		c.Logger.Errorf("get %s bytecode failed: %s", common.HexToAddress(contract1), err)
+		c.Logger.Errorf("get %s bytecode failed: %s", common.HexToAddress(token1), err)
 		c.retry = true
 		return false, err
 	}
 
 	for i := range c.byteCodes {
 		needHandle := false
-		contract := contract0
+		token := token0
 		if string(byteCode0) == c.byteCodes[i] {
 			needHandle = true
-			contract = contract0
+			token = token0
 		} else if string(byteCode1) == c.byteCodes[i] {
 			needHandle = true
-			contract = contract1
+			token = token1
 		}
 
 		if needHandle {
 			ctx.Set("TxHash", event.TxHash.Hex())
-			ctx.Set("Contract", contract)
-			ctx.Set("SrcContract", i)
-			ctx.Set("SrcContractName", c.contractName[i])
+			ctx.Set("Token", token)
+			ctx.Set("SrcToken", i)
+			ctx.Set("SrcTokenGroup", c.tokenGroup[i])
 			return true, nil
 		}
 	}
@@ -135,9 +143,9 @@ func (c *ConstructorListener) NeedHandle(ctx app.EventContext) (bool, error) {
 
 func (c *ConstructorListener) Execute(ctx app.EventContext) error {
 	event := ctx.Event()
-	contract := ctx.Value("Contract").(string)
-	srcContract := ctx.Value("SrcContract").(string)
-	srcContractName := ctx.Value("SrcContractName").(string)
+	token := ctx.Value("Token").(string)
+	srcContract := ctx.Value("SrcToken").(string)
+	srcContractName := ctx.Value("SrcTokenGroup").(string)
 	txHash := ctx.Value("TxHash").(string)
 
 	ctx.Set(app.NoticeContent,
@@ -153,7 +161,7 @@ func (c *ConstructorListener) Execute(ctx app.EventContext) error {
 事件 Hash: %s`,
 			time.Now().Format(time.DateTime),
 			event.BlockNumber,
-			common.HexToAddress(contract),
+			common.HexToAddress(token),
 			srcContract,
 			srcContractName,
 			txHash,
@@ -170,13 +178,13 @@ func (c *ConstructorListener) SendDingtalk(ctx app.EventContext) (string, string
 	json := `{
 	  "msgtype": "markdown",
 	  "markdown": {
-		"title": "上链检测",
-		"text": "%s"
+			"title": "上链检测",
+			"text": "%s"
 	  },
 	  "at": {
-		"atMobiles": [],
-		"atUserIds": [],
-		"isAtAll": false
+			"atMobiles": [],
+			"atUserIds": [],
+			"isAtAll": false
 	  }
 	}`
 	return token, fmt.Sprintf(json, ctx.Value(app.NoticeContent).(string))
@@ -186,6 +194,11 @@ func (c *ConstructorListener) Init(config *app.Config, status *app.Status, opera
 	c.cfg = config
 	c.Status = status
 	c.operator = operator
+	factory, err := book.NewPancakeFactoryV2(common.HexToAddress(address.PancakeFactoryV2), c.Client)
+	if err != nil {
+		panic(err)
+	}
+	c.factory = factory
 	_ = app.LoadConfig("constructor", c.srvCfg)
 	c.Logger.Infof("%s loaded config %v", c.Name(), c.srvCfg)
 }
