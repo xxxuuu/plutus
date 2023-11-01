@@ -2,4 +2,3 @@
 .vscode
 
 conf/config.yaml
-generated*.go
