@@ -6,6 +6,7 @@ import (
 )
 
 func getClient() (*ethclient.Client, error) {
+	// exec "anvil --fork-url=https://bscrpc.com" before unit tests
 	nodeAddr := "ws://127.0.0.1:8545"
 	client, err := ethclient.Dial(nodeAddr)
 	if err != nil {

@@ -1,28 +1,34 @@
 package main
 
 import (
-	"go.uber.org/zap"
+	"context"
+	"os/signal"
+	"syscall"
 
-	"plutus/internal/app"
-	_ "plutus/internal/notice"
-	_ "plutus/internal/service"
+	log "github.com/sirupsen/logrus"
+
+	"plutus/pkg/app"
+	_ "plutus/pkg/notice"
+	_ "plutus/pkg/service"
 )
 
 func main() {
+	log := log.New()
+
 	var config app.Config
 	if err := app.LoadConfig("", &config); err != nil {
-		panic(err)
+		log.Error(err)
+		return
 	}
-
-	logger, _ := zap.NewDevelopment()
-	sugar := logger.Sugar()
 
 	app := app.NewApp(
 		"Plutus",
 		&config,
-		[]app.Option{},
-		&app.Logger{SugaredLogger: *sugar},
+		log,
 	)
 
-	app.Run()
+	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	if err := app.Run(ctx); err != nil {
+		log.Error(err)
+	}
 }

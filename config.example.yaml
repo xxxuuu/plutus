@@ -1,6 +1,10 @@
+cache_size: 1024
 node_address: <NODE_RPC>
 dingtalk_token: <DINGTALK_TOKEN>
-constructor:
-  tokens:
-    <TOKEN_GROUP>:
-      - <TOKEN_ADDR>
+services:
+  constructor:
+    enabled: true
+    config:
+      tokens:
+        <TOKEN_GROUP>:
+          - <TOKEN_ADDR>

@@ -7,11 +7,11 @@ COPY go.mod go.sum ./
 RUN go generate ./...
 RUN go mod download && go mod verify
 COPY . .
-RUN go build -o /app ./cmd/plutus/main.go
+RUN go build -o /plutus ./cmd/plutus/main.go
 
 FROM scratch
 ENV TZ Asia/Shanghai
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
-COPY --from=builder /app /app
-ENTRYPOINT ["/app"]
+COPY --from=builder /plutus /plutus
+ENTRYPOINT ["/plutus"]

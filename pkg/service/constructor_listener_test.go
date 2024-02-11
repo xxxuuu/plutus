@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	"plutus/internal/common/address"
-	"plutus/internal/common/book"
+	"plutus/pkg/common/address"
+	"plutus/pkg/common/book"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

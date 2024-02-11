@@ -6,16 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"plutus/internal/app"
 )
 
 const DingtalkUrl = "https://oapi.dingtalk.com/robot/send?access_token=%s"
 
 type Dingtalk struct{}
 
-func (d Dingtalk) Notice(ctx app.EventContext, srv any) error {
-	if sender, ok := srv.(DingtalkSender); ok {
-		token, content := sender.SendDingtalk(ctx)
+func (d Dingtalk) Notice(msg string, srv any) error {
+	if sender, ok := srv.(DingtalkNotifier); ok {
+		token, content := sender.DingtalkMsg(msg)
 		resp, err := http.Post(fmt.Sprintf(DingtalkUrl, token), "application/json", bytes.NewBuffer([]byte(content)))
 		if err != nil {
 			return err
@@ -36,12 +35,10 @@ func (d Dingtalk) Notice(ctx app.EventContext, srv any) error {
 	return nil
 }
 
-type DingtalkSender interface {
-	// SendDingtalk return (token, content json string)
-	SendDingtalk(ctx app.EventContext) (string, string)
+type DingtalkNotifier interface {
+	DingtalkMsg(msg string) (token string, content string)
 }
 
 func init() {
-	d := Dingtalk{}
-	app.RegisterNotice(d)
+	RegisterNotice(Dingtalk{})
 }
