@@ -46,7 +46,6 @@ func (s *ConfigTestSuite) SetupTest() {
 		},
 	}
 
-	log.Infof("%p", readConfig)
 	s.rawConfig = fmt.Sprintf(`
 cache_size: %d
 node_address: %s
@@ -69,8 +68,6 @@ services:
 		}
 		return k
 	})
-
-	log.Infof("%p", readConfig)
 }
 
 func (s *ConfigTestSuite) TearDownTest() {

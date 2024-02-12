@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"plutus/pkg/app"
 	_ "plutus/pkg/notice"
@@ -13,7 +13,8 @@ import (
 )
 
 func main() {
-	log := log.New()
+	log := logrus.New()
+	log.SetReportCaller(true)
 
 	var config app.Config
 	if err := app.LoadConfig("", &config); err != nil {
