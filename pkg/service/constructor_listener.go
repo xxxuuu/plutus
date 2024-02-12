@@ -175,7 +175,7 @@ func (c *ConstructorListener) Init(config *app.Config, status *app.Status, log *
 	c.log = log
 	c.Status = status
 
-	err := app.LoadServiceConfig(c.Name(), c.srvCfg)
+	err := app.LoadServiceConfig(c.Name(), &c.srvCfg)
 	if err != nil {
 		return err
 	}

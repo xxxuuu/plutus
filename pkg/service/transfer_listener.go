@@ -106,7 +106,7 @@ func (t *TransferListener) Init(config *app.Config, status *app.Status, log *log
 	t.Status = status
 	t.log = log
 
-	err := app.LoadServiceConfig(t.Name(), t.srvCfg)
+	err := app.LoadServiceConfig(t.Name(), &t.srvCfg)
 	if err != nil {
 		return err
 	}
