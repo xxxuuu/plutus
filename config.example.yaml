@@ -10,6 +10,7 @@ services:
           - <TOKEN_ADDR>
   transfer:
     enabled: true
-    wallets:
-      - <ADDR>
-    threshold_value: <VALUE as USDT>
+    config:
+      wallets:
+        - <ADDR>
+      threshold_value: <VALUE as USDT>
