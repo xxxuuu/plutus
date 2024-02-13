@@ -136,7 +136,7 @@ func (t *TransferListener) handle(event *book.Erc20Transfer) error {
 		from:   event.From.Hex(),
 		to:     event.To.Hex(),
 		amount: util.ToDecimal(value, USDTDecimal).StringFixed(2),
-	})
+	}, t)
 
 	return nil
 }

@@ -13,7 +13,7 @@ type BaseService struct {
 	cfg *app.Config
 }
 
-func (b *BaseService) BroadCast(msg notice.Msg) {
-	log.Infof("broadcast: %s", msg)
-	notice.BroadCast(msg, b)
+func (b *BaseService) BroadCast(msg notice.Msg, srv any) {
+	b.log.Infof("broadcast: %s", msg)
+	notice.BroadCast(msg, srv)
 }

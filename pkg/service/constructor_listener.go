@@ -135,7 +135,7 @@ func (c *ConstructorListener) handle(event *book.PancakeFactoryV2PairCreated) er
 				addr,
 				c.tokenGroup[addr],
 				event.Raw.TxHash,
-			)))
+			)), c)
 
 			return nil
 		}
