@@ -86,10 +86,12 @@ func (c *ConstructorListener) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
+		case err := <-sub.Err():
+			return err
 		case event := <-sink:
 			err := c.handle(event)
 			if err != nil {
-				c.log.WithField("tx hash", event.Raw.TxHash).Error("handle failed: %s", err)
+				c.log.WithField("tx hash", event.Raw.TxHash).Errorf("handle failed: %s", err)
 			}
 		}
 	}

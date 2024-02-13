@@ -61,6 +61,10 @@ func (t *TransferListener) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
+		case err := <-bnbSub.Err():
+			return err
+		case err := <-usdtSub.Err():
+			return err
 		case event = <-usdtSink:
 		case event = <-bnbSink:
 		}

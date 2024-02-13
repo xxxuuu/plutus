@@ -27,9 +27,10 @@ type Status struct {
 func (app *App) runService(ctx context.Context, srv Service) {
 	log := app.log.WithField("service", srv.Name())
 	for {
+		log.Info("Service running...")
 		err := srv.Run(ctx)
 		if err != nil {
-			log.Errorf("run failed: %s", err)
+			log.Errorf("Run failed: %s", err)
 			time.Sleep(time.Second)
 		}
 	}
