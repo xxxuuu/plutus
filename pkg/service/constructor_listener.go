@@ -12,6 +12,7 @@ import (
 	"plutus/pkg/app"
 	"plutus/pkg/common/address"
 	"plutus/pkg/common/book"
+	"plutus/pkg/notice"
 )
 
 type ConstructorListener struct {
@@ -127,14 +128,14 @@ func (c *ConstructorListener) handle(event *book.PancakeFactoryV2PairCreated) er
 		}
 
 		if needHandle {
-			c.BroadCast(fmt.Sprintf(c.msgTemplate(),
+			c.BroadCast(notice.TextMsg(fmt.Sprintf(c.msgTemplate(),
 				time.Now().Format(time.DateTime),
 				event.Raw.BlockNumber,
 				common.HexToAddress(token),
 				addr,
 				c.tokenGroup[addr],
 				event.Raw.TxHash,
-			))
+			)))
 
 			return nil
 		}
@@ -155,7 +156,7 @@ func (c *ConstructorListener) msgTemplate() string {
 	事件 Hash: %s`
 }
 
-func (c *ConstructorListener) DingtalkMsg(msg string) (string, string) {
+func (c *ConstructorListener) DingtalkMsg(msg notice.Msg) (string, string) {
 	token := c.cfg.DingtalkToken
 	json := `{
 	  "msgtype": "markdown",

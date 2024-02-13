@@ -12,7 +12,7 @@ const DingtalkUrl = "https://oapi.dingtalk.com/robot/send?access_token=%s"
 
 type Dingtalk struct{}
 
-func (d Dingtalk) Notice(msg string, srv any) error {
+func (d Dingtalk) Notice(msg Msg, srv any) error {
 	if sender, ok := srv.(DingtalkNotifier); ok {
 		token, content := sender.DingtalkMsg(msg)
 		resp, err := http.Post(fmt.Sprintf(DingtalkUrl, token), "application/json", bytes.NewBuffer([]byte(content)))
@@ -36,7 +36,7 @@ func (d Dingtalk) Notice(msg string, srv any) error {
 }
 
 type DingtalkNotifier interface {
-	DingtalkMsg(msg string) (token string, content string)
+	DingtalkMsg(msg Msg) (token string, content string)
 }
 
 func init() {

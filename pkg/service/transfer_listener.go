@@ -12,6 +12,7 @@ import (
 	"plutus/pkg/common/address"
 	"plutus/pkg/common/book"
 	"plutus/pkg/common/util"
+	"plutus/pkg/notice"
 )
 
 const (
@@ -30,6 +31,43 @@ type TransferListener struct {
 type TransferConfig struct {
 	Wallets        []string `koanf:"wallets"`
 	ThresholdValue string   `koanf:"threshold_value"`
+}
+
+type TransferMsg struct {
+	txHash string
+	from   string
+	to     string
+	amount string
+}
+
+func (t *TransferMsg) String() string {
+	return fmt.Sprintf("[%s] Received transfer event - Tx Hash: %s, From: %s, To: %s, Value: %s USDT",
+		time.Now().Format("2006-01-02 15:04:05"),
+		t.txHash,
+		t.from,
+		t.to,
+		t.amount,
+	)
+}
+
+func (t *TransferMsg) HumanReadableMsg() string {
+	return fmt.Sprintf(`
+	### Tx Hash
+	%s
+
+	([BscScan](https://bscscan.com/tx/%s), [OkLink](https://www.oklink.com/cn/bsc/tx/%s))
+
+
+	### 发款方
+	[%s](https://www.oklink.com/cn/bsc/address/%s)
+
+
+	### 收款方
+	[%s](https://www.oklink.com/cn/bsc/address/%s)
+
+
+	### 金额
+	%s USDT`, t.txHash, t.txHash, t.txHash, t.from, t.from, t.to, t.to, t.amount)
 }
 
 func (t *TransferListener) Name() string {
@@ -93,16 +131,31 @@ func (t *TransferListener) handle(event *book.Erc20Transfer) error {
 		return nil
 	}
 
-	t.BroadCast(fmt.Sprintf(
-		"[%s] Received transfer event - Tx Hash: %s, From: %s, To: %s, Value: %s USDT",
-		time.Now().Format("2006-01-02 15:04:05"),
-		event.Raw.TxHash.Hex(),
-		event.From.Hex(),
-		event.To.Hex(),
-		event.Tokens,
-	))
+	t.BroadCast(&TransferMsg{
+		txHash: event.Raw.TxHash.Hex(),
+		from:   event.From.Hex(),
+		to:     event.To.Hex(),
+		amount: util.ToDecimal(value, USDTDecimal).StringFixed(2),
+	})
 
 	return nil
+}
+
+func (t *TransferListener) DingtalkMsg(msg notice.Msg) (token string, content string) {
+	transferMsg := msg.(*TransferMsg)
+	json := `{
+	  "msgtype": "markdown",
+	  "markdown": {
+		"title": "交易捕获: %s USDT",
+		"text": "%s"
+	  },
+	  "at": {
+		"atMobiles": [],
+		"atUserIds": [],
+		"isAtAll": false
+	  }
+	}`
+	return t.cfg.DingtalkToken, fmt.Sprintf(json, transferMsg.amount, transferMsg.HumanReadableMsg())
 }
 
 func (t *TransferListener) Init(config *app.Config, status *app.Status, log *log.Entry) error {
