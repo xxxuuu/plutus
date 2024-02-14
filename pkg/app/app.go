@@ -52,7 +52,7 @@ func (app *App) Run(ctx context.Context) error {
 	}
 
 	for _, s := range app.services {
-		srvLog := log.WithField("service", s.Name())
+		srvLog := app.log.WithField("service", s.Name())
 		err := s.Init(app.config, app.Status, srvLog)
 		if err != nil {
 			return fmt.Errorf("init service %s failed: %w", s.Name(), err)
