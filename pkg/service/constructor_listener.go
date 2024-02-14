@@ -145,15 +145,15 @@ func (c *ConstructorListener) handle(event *book.PancakeFactoryV2PairCreated) er
 
 func (c *ConstructorListener) msgTemplate() string {
 	return `
-	通知时间: %s
-	
-	区块高度: %d
-	
-	合约地址 %s
-	
-	与 %s(%s) 相同
-	
-	事件 Hash: %s`
+通知时间: %s
+
+区块高度: %d
+
+合约地址 %s
+
+与 %s(%s) 相同
+
+事件 Hash: %s`
 }
 
 func (c *ConstructorListener) DingtalkMsg(msg notice.Msg) (string, string) {

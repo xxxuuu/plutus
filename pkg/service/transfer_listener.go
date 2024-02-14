@@ -51,23 +51,24 @@ func (t *TransferMsg) String() string {
 }
 
 func (t *TransferMsg) HumanReadableMsg() string {
-	return fmt.Sprintf(`
-	### Tx Hash
-	%s
+	tmpl := `
+### Tx Hash
+%s
 
-	([BscScan](https://bscscan.com/tx/%s), [OkLink](https://www.oklink.com/cn/bsc/tx/%s))
-
-
-	### 发款方
-	[%s](https://www.oklink.com/cn/bsc/address/%s)
+([BscScan](https://bscscan.com/tx/%s), [OkLink](https://www.oklink.com/cn/bsc/tx/%s))
 
 
-	### 收款方
-	[%s](https://www.oklink.com/cn/bsc/address/%s)
+### 发款方
+[%s](https://www.oklink.com/cn/bsc/address/%s)
 
 
-	### 金额
-	%s USDT`, t.txHash, t.txHash, t.txHash, t.from, t.from, t.to, t.to, t.amount)
+### 收款方
+[%s](https://www.oklink.com/cn/bsc/address/%s)
+
+
+### 金额
+%s USDT`
+	return fmt.Sprintf(tmpl, t.txHash, t.txHash, t.txHash, t.from, t.from, t.to, t.to, t.amount)
 }
 
 func (t *TransferListener) Name() string {
