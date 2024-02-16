@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/lru"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 const (
@@ -18,12 +21,30 @@ const (
 	CacheKeyCodeAt = "CodeAt_%s"
 )
 
-type Client struct {
-	*ethclient.Client
+type Client interface {
+	ethereum.ChainReader
+	bind.ContractBackend
+	Close()
+}
+
+type CachedClient struct {
+	Client
 	cache *lru.Cache[string, any]
 }
 
-func (c *Client) retryWithBackOff(maxRetryCnt int, fn func() error) error {
+func NewCachedClient(baseClient Client, cacheSize int) *CachedClient {
+	return &CachedClient{
+		Client: baseClient,
+		cache:  lru.NewCache[string, any](cacheSize),
+	}
+}
+
+func (c *CachedClient) Close() {
+	c.Client.Close()
+	c.cache.Purge()
+}
+
+func (c *CachedClient) retryWithBackOff(maxRetryCnt int, fn func() error) error {
 	var err error
 	for retry := 0; retry <= maxRetryCnt; retry++ {
 		err = fn()
@@ -35,7 +56,7 @@ func (c *Client) retryWithBackOff(maxRetryCnt int, fn func() error) error {
 	return err
 }
 
-func (c *Client) CodeAt(ctx context.Context, contract ethcommon.Address, blockNumber *big.Int) ([]byte, error) {
+func (c *CachedClient) CodeAt(ctx context.Context, contract ethcommon.Address, blockNumber *big.Int) ([]byte, error) {
 	key := fmt.Sprintf(CacheKeyCodeAt, contract)
 	value, ok := c.cache.Get(key)
 	if ok {
@@ -57,14 +78,123 @@ func (c *Client) CodeAt(ctx context.Context, contract ethcommon.Address, blockNu
 	return code, nil
 }
 
-// func (c *Client) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-// 	err := c.retryWithBackOff(RetryCnt, func() error {
-// 		s, err := app.Client.SubscribeFilterLogs(context.Background(), filter, logCh)
-// 		if err != nil {
-// 			log.Warnf("Subscribe failed: %s, retrying...", err)
-// 			return err
-// 		}
-// 		sub = s
-// 		return nil
-// 	})
-// }
+type SimulatedClient struct {
+	Client
+	blockNumber *big.Int
+	logSub      []*SimulatedSubscription[types.Log]
+	blockSub    []*SimulatedSubscription[*types.Header]
+}
+
+type SimulatedSubscription[T types.Log | *types.Header] struct {
+	ethereum.Subscription
+	query  ethereum.FilterQuery
+	ch     chan<- T
+	active bool
+}
+
+func (s *SimulatedSubscription[T]) Unsubscribe() {
+	s.Subscription.Unsubscribe()
+	s.active = false
+}
+
+func NewSimulatedClient(client Client, blockNumber *big.Int) *SimulatedClient {
+	return &SimulatedClient{
+		Client:      client,
+		blockNumber: blockNumber,
+		logSub:      []*SimulatedSubscription[types.Log]{},
+		blockSub:    []*SimulatedSubscription[*types.Header]{},
+	}
+}
+
+func (c *SimulatedClient) Close() {
+	c.Client.Close()
+	c.logSub = nil
+	c.blockSub = nil
+}
+
+func (c *SimulatedClient) SetBlockNumber(blockNumber *big.Int) {
+	c.blockNumber = blockNumber
+}
+
+func (c *SimulatedClient) calcBlockNumber(blockNumber *big.Int) *big.Int {
+	if blockNumber == nil || blockNumber.Cmp(c.blockNumber) > 0 {
+		return c.blockNumber
+	}
+	return blockNumber
+}
+
+func (c *SimulatedClient) FetchNewBlock() error {
+	c.blockNumber.Add(c.blockNumber, big.NewInt(1))
+	// get the block at the height from mainnet, and publish it
+	header, err := c.Client.HeaderByNumber(context.Background(), c.blockNumber)
+	if err != nil {
+		return err
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(c.blockSub) + len(c.logSub))
+	for i := range c.blockSub {
+		sub := c.blockSub[i]
+		go func() {
+			sub.ch <- header
+			wg.Done()
+		}()
+	}
+	for i := range c.logSub {
+		sub := c.logSub[i]
+		query := sub.query
+		query.FromBlock = c.blockNumber
+		query.ToBlock = c.blockNumber
+		logs, err := c.Client.FilterLogs(context.Background(), query)
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			for _, log := range logs {
+				sub.ch <- log
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	return nil
+}
+
+func (c *SimulatedClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	return c.Client.HeaderByNumber(ctx, c.calcBlockNumber(number))
+}
+
+func (c *SimulatedClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	return c.Client.BlockByNumber(ctx, c.calcBlockNumber(number))
+}
+
+func (c *SimulatedClient) CodeAt(ctx context.Context, contract ethcommon.Address, blockNumber *big.Int) ([]byte, error) {
+	return c.Client.CodeAt(ctx, contract, c.calcBlockNumber(blockNumber))
+}
+
+func (c *SimulatedClient) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	if query.ToBlock != nil && query.ToBlock.Cmp(c.blockNumber) > 0 {
+		query.ToBlock = c.blockNumber
+	}
+	sub, err := c.Client.SubscribeFilterLogs(ctx, query, ch)
+	simSub := &SimulatedSubscription[types.Log]{
+		Subscription: sub,
+		query:        query,
+		ch:           ch,
+		active:       true,
+	}
+	c.logSub = append(c.logSub, simSub)
+	return simSub, err
+}
+
+func (c *SimulatedClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+	sub, err := c.Client.SubscribeNewHead(ctx, ch)
+	simSub := &SimulatedSubscription[*types.Header]{
+		Subscription: sub,
+		ch:           ch,
+		active:       true,
+	}
+	c.blockSub = append(c.blockSub, simSub)
+	return simSub, err
+}

@@ -1,7 +1,5 @@
 package notice
 
-const KeyNoticeContent = "content"
-
 var notices []Notice
 
 type Notice interface {
@@ -21,6 +19,7 @@ func RegisterNotice(n Notice) {
 	notices = append(notices, n)
 }
 
+//go:noinline
 func BroadCast(msg Msg, srv any) {
 	for _, n := range notices {
 		n.Notice(msg, srv)

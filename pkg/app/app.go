@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common/lru"
 	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
 )
@@ -21,7 +19,7 @@ type App struct {
 }
 
 type Status struct {
-	Client bind.ContractBackend
+	Client Client
 }
 
 func (app *App) runService(ctx context.Context, srv Service) {
@@ -46,10 +44,7 @@ func (app *App) Run(ctx context.Context) error {
 		return fmt.Errorf("connect to Node failed: %w", err)
 	}
 	defer client.Close()
-	app.Client = &Client{
-		client,
-		lru.NewCache[string, any](int(app.config.CacheSize)),
-	}
+	app.Client = NewCachedClient(client, app.config.CacheSize)
 
 	for _, s := range app.services {
 		srvLog := app.log.WithField("service", s.Name())
