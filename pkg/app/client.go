@@ -132,9 +132,12 @@ func (c *SimulatedClient) FetchNewBlock() error {
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(c.blockSub) + len(c.logSub))
 	for i := range c.blockSub {
 		sub := c.blockSub[i]
+		if !sub.active {
+			continue
+		}
+		wg.Add(1)
 		go func() {
 			sub.ch <- header
 			wg.Done()
@@ -142,6 +145,9 @@ func (c *SimulatedClient) FetchNewBlock() error {
 	}
 	for i := range c.logSub {
 		sub := c.logSub[i]
+		if !sub.active {
+			continue
+		}
 		query := sub.query
 		query.FromBlock = c.blockNumber
 		query.ToBlock = c.blockNumber
@@ -150,6 +156,7 @@ func (c *SimulatedClient) FetchNewBlock() error {
 			return err
 		}
 
+		wg.Add(1)
 		go func() {
 			for _, log := range logs {
 				sub.ch <- log
