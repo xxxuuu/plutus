@@ -12,6 +12,7 @@ type Config struct {
 	CacheSize     int                      `koanf:"cache_size"`
 	NodeAddress   string                   `koanf:"node_address"`
 	DingtalkToken string                   `koanf:"dingtalk_token"`
+	BscScanToken  string                   `koanf:"bscscan_token"`
 	Services      map[string]ServiceConfig `koanf:"services"`
 }
 

@@ -23,6 +23,11 @@ const (
 
 type Client interface {
 	ethereum.ChainReader
+	ethereum.TransactionReader
+	ethereum.ChainStateReader
+	ethereum.FeeHistoryReader
+	ethereum.BlockNumberReader
+	ethereum.ChainIDReader
 	bind.ContractBackend
 	Close()
 }

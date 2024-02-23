@@ -5,6 +5,7 @@ import (
 
 	"plutus/pkg/app"
 
+	"github.com/nanmu42/etherscan-api"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
 )
@@ -30,11 +31,25 @@ func (s *TransferListenerTestSuite) SetupTest() {
 		Wallets:        s.wallets,
 	}
 	s.srv.Init(&app.Config{}, &app.Status{
-		Client: s.client,
+		Client:        s.client,
+		BscScanClient: s.bscscanClient,
 	}, logrus.NewEntry(logrus.New()))
 }
 
 func (s *TransferListenerTestSuite) TestHandle() {
+	s.patch.ApplyMethodFunc(s.bscscanClient, "ERC20Transfers",
+		func(contractAddress, address *string, _, _ *int, _, _ int, _ bool) ([]etherscan.ERC20Transfer, error) {
+			s.Nil(contractAddress)
+			s.Equal("0x7A4B173e6Af66cD7a4312a7AE900222f591F403D", *address)
+			return []etherscan.ERC20Transfer{
+				{
+					TokenSymbol: "BUSDT",
+				}, {
+					TokenSymbol:     "TEST",
+					ContractAddress: "0x9624393cba121b81695b6c3d8ffc9337fe581897",
+				},
+			}, nil
+		})
 	s.ReplayBlockWithRun(36094489)
 
 	s.NotNil(s.noticeMsg)
@@ -43,4 +58,7 @@ func (s *TransferListenerTestSuite) TestHandle() {
 	s.Equal("0x7A4B173e6Af66cD7a4312a7AE900222f591F403D", transferMsg.from)
 	s.Equal(s.wallets[0], transferMsg.to)
 	s.Equal("6300.00", transferMsg.amount)
+	s.Equal(map[string]string{
+		"0x9624393cba121b81695b6c3d8ffc9337fe581897": "TEST",
+	}, transferMsg.relevantTokens)
 }

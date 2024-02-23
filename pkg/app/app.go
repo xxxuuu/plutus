@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/nanmu42/etherscan-api"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,7 +20,8 @@ type App struct {
 }
 
 type Status struct {
-	Client Client
+	Client        Client
+	BscScanClient *etherscan.Client
 }
 
 func (app *App) runService(ctx context.Context, srv Service) {
@@ -45,6 +47,11 @@ func (app *App) Run(ctx context.Context) error {
 	}
 	defer client.Close()
 	app.Client = NewCachedClient(client, app.config.CacheSize)
+	app.BscScanClient = etherscan.NewCustomized(etherscan.Customization{
+		Timeout: 2 * time.Second,
+		Key:     app.config.BscScanToken,
+		BaseURL: `https://api.bscscan.com/api?`,
+	})
 
 	for _, s := range app.services {
 		srvLog := app.log.WithField("service", s.Name())

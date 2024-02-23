@@ -1,6 +1,7 @@
 cache_size: 1024
 node_address: <NODE_RPC>
 dingtalk_token: <DINGTALK_TOKEN>
+bscscan_token: <BSCSCAN_TOKEN>
 services:
   constructor:
     enabled: true

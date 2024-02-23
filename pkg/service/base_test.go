@@ -7,6 +7,7 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/nanmu42/etherscan-api"
 	"github.com/stretchr/testify/suite"
 
 	"plutus/pkg/app"
@@ -25,10 +26,11 @@ func (s *baseTestSuite) getAnvilClient() *ethclient.Client {
 type baseTestSuite struct {
 	suite.Suite
 
-	client    *app.SimulatedClient
-	patch     *gomonkey.Patches
-	noticeMsg notice.Msg
-	srv       app.Service
+	client        *app.SimulatedClient
+	bscscanClient *etherscan.Client
+	patch         *gomonkey.Patches
+	noticeMsg     notice.Msg
+	srv           app.Service
 }
 
 func (s *baseTestSuite) SetupTest() {
@@ -38,6 +40,7 @@ func (s *baseTestSuite) SetupTest() {
 	})
 
 	s.client = app.NewSimulatedClient(s.getAnvilClient(), nil)
+	s.bscscanClient = etherscan.New(etherscan.Mainnet, "")
 }
 
 func (s *baseTestSuite) TearDownTest() {
