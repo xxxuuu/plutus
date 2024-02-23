@@ -79,7 +79,7 @@ func (c *ConstructorListener) Run(ctx context.Context) error {
 	sink := make(chan *book.PancakeFactoryV2PairCreated)
 	sub, err := c.WatchEvent(sink)
 	if err != nil {
-		return err
+		return fmt.Errorf("watch failed: %w", err)
 	}
 	defer sub.Unsubscribe()
 
@@ -88,7 +88,7 @@ func (c *ConstructorListener) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case err := <-sub.Err():
-			return err
+			return fmt.Errorf("subscription error: %w", err)
 		case event := <-sink:
 			err := c.handle(event)
 			if err != nil {
@@ -106,14 +106,14 @@ func (c *ConstructorListener) handle(event *book.PancakeFactoryV2PairCreated) er
 	byteCode0, err := c.getByteCode(token0)
 	if err != nil {
 		log.WithField("token0", common.HexToAddress(token0)).Errorf("get bytecode failed: %s", err)
-		return err
+		return fmt.Errorf("get %s bytecode failed: %w", token0, err)
 	}
 
 	token1 := event.Token1.Hex()
 	byteCode1, err := c.getByteCode(token1)
 	if err != nil {
 		log.WithField("token0", common.HexToAddress(token1)).Errorf("get bytecode failed: %s", err)
-		return err
+		return fmt.Errorf("get %s bytecode failed: %w", token1, err)
 	}
 
 	for addr := range c.byteCodes {

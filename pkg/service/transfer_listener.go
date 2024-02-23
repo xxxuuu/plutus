@@ -84,14 +84,14 @@ func (t *TransferListener) Run(ctx context.Context) error {
 	bnbSink := make(chan *book.Erc20Transfer)
 	bnbSub, err := t.bnb.WatchTransfer(nil, bnbSink, []common.Address{}, wallets)
 	if err != nil {
-		return err
+		return fmt.Errorf("bnb watch failed: %w", err)
 	}
 	defer bnbSub.Unsubscribe()
 
 	usdtSink := make(chan *book.Erc20Transfer)
 	usdtSub, err := t.usdt.WatchTransfer(nil, usdtSink, []common.Address{}, wallets)
 	if err != nil {
-		return err
+		return fmt.Errorf("usdt watch failed: %w", err)
 	}
 	defer usdtSub.Unsubscribe()
 
@@ -101,9 +101,9 @@ func (t *TransferListener) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case err := <-bnbSub.Err():
-			return err
+			return fmt.Errorf("bnb subscription error: %w", err)
 		case err := <-usdtSub.Err():
-			return err
+			return fmt.Errorf("usdt subscription error: %w", err)
 		case event = <-usdtSink:
 		case event = <-bnbSink:
 		}
@@ -124,7 +124,7 @@ func (t *TransferListener) handle(event *book.Erc20Transfer) error {
 		amountOut, err := t.pancakeSwap.GetAmountOut(nil, event.Tokens,
 			event.Raw.Address.Big(), common.HexToAddress(address.USDT).Big())
 		if err != nil {
-			return err
+			return fmt.Errorf("get amount out failed: %w", err)
 		}
 		value = amountOut
 	}
