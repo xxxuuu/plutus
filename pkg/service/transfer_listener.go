@@ -25,7 +25,10 @@ var (
 	BlockKeyword = []string{
 		"USD",
 		"BNB",
-		"Cake-LP",
+		"ETH",
+		"TRX",
+		"Binance",
+		"Cake",
 		"claim",
 		"rewards",
 	}
@@ -67,7 +70,7 @@ func (t *TransferMsg) String() string {
 func (t *TransferMsg) HumanReadableMsg() string {
 	relevantTokens := strings.Builder{}
 	for addr, name := range t.relevantTokens {
-		relevantTokens.WriteString(fmt.Sprintf("- [%s](%s)\n", name, addr))
+		relevantTokens.WriteString(fmt.Sprintf("- [%s](https://ave.ai/token/%s-bsc)\n", name, addr))
 	}
 
 	tmpl := `
@@ -86,7 +89,7 @@ func (t *TransferMsg) HumanReadableMsg() string {
 ### 关联币种
 %s`
 	return fmt.Sprintf(tmpl,
-		t.txHash, t.txHash, t.from, t.from, t.to, t.to, t.amount, relevantTokens)
+		t.txHash, t.txHash, t.from, t.from, t.to, t.to, t.amount, relevantTokens.String())
 }
 
 func (t *TransferListener) Name() string {
@@ -184,7 +187,8 @@ func (t *TransferListener) relevantTokens(ctx context.Context, eoa common.Addres
 	for _, tx := range txList {
 		block := false
 		for _, word := range BlockKeyword {
-			if strings.Contains(strings.ToLower(tx.TokenSymbol), strings.ToLower(word)) {
+			if strings.Contains(strings.ToLower(tx.TokenSymbol), strings.ToLower(word)) ||
+				strings.Contains(strings.ToLower(tx.TokenName), strings.ToLower(word)) {
 				block = true
 				break
 			}
