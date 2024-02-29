@@ -31,6 +31,8 @@ var (
 		"Cake",
 		"claim",
 		"rewards",
+		"Ѕ", // Cyrillic letter
+		"Т", // Cyrillic letter
 	}
 )
 

@@ -47,6 +47,9 @@ func (s *TransferListenerTestSuite) TestHandle() {
 				}, {
 					TokenSymbol:     "TEST",
 					ContractAddress: "0x9624393cba121b81695b6c3d8ffc9337fe581897",
+				}, {
+					ContractAddress: "0xfdcca677e59c138fda21055057f57c3f9adf7656",
+					TokenSymbol:     "UЅDТ",
 				},
 			}, nil
 		})
