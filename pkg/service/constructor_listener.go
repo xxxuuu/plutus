@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/antlabs/strsim"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
@@ -98,6 +99,10 @@ func (c *ConstructorListener) Run(ctx context.Context) error {
 	}
 }
 
+func (c *ConstructorListener) similar(codeA string, codeB string) bool {
+	return strsim.Compare(string(codeA), string(codeB)) >= 0.8
+}
+
 func (c *ConstructorListener) handle(event *book.PancakeFactoryV2PairCreated) error {
 	log := c.log.
 		WithField("tx hash", event.Raw.TxHash)
@@ -119,10 +124,10 @@ func (c *ConstructorListener) handle(event *book.PancakeFactoryV2PairCreated) er
 	for addr := range c.byteCodes {
 		needHandle := false
 		token := token0
-		if string(byteCode0) == c.byteCodes[addr] {
+		if c.similar(string(byteCode0), c.byteCodes[addr]) {
 			needHandle = true
 			token = token0
-		} else if string(byteCode1) == c.byteCodes[addr] {
+		} else if c.similar(string(byteCode1), c.byteCodes[addr]) {
 			needHandle = true
 			token = token1
 		}
@@ -151,7 +156,7 @@ func (c *ConstructorListener) msgTemplate() string {
 
 合约地址 %s
 
-与 %s(%s) 相同
+与 %s(%s) 相似
 
 事件 Hash: %s`
 }

@@ -8,11 +8,12 @@ require (
 	github.com/knadh/koanf/parsers/yaml v0.1.0
 	github.com/knadh/koanf/providers/file v0.1.0
 	github.com/knadh/koanf/v2 v2.0.1
-	github.com/stretchr/testify v1.8.4
 	github.com/nanmu42/etherscan-api v1.10.0
+	github.com/stretchr/testify v1.8.4
 )
 
 require (
+	github.com/antlabs/strsim v0.0.3 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect

@@ -57,6 +57,18 @@ func (s *ConstructorListenerTestSuite) TestConstructorByteCode() {
 	s.Equal(byteCodeA, byteCodeC)
 }
 
+func (s *ConstructorListenerTestSuite) TestSimilar() {
+	a := "0x3c38726744816f2011440bf0edaaf48ea2b7d7ba"
+	b := "0x7aa1fdf55e5e262e73378692b41ada2962113a51"
+
+	codeA, err := s.client.CodeAt(context.Background(), common.HexToAddress(a), nil)
+	s.NoError(err)
+	codeB, err := s.client.CodeAt(context.Background(), common.HexToAddress(b), nil)
+	s.NoError(err)
+
+	s.True(s.srv.(*ConstructorListener).similar(string(codeA), string(codeB)))
+}
+
 func (s *ConstructorListenerTestSuite) TestHandle() {
 	blockHeight := 29013912
 	s.ReplayBlockWithRun(int64(blockHeight))
